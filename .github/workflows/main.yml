@@ -1,58 +1,89 @@
-name: Java CI with Maven
-on:  
-push:    
-branches: [ master ]  
-pull_request:    
-branches: [ master ]
+# This workflow will build a mulesoft project and deploy to Cloudhub
 
-jobs:  
-build:    
-runs-on: ubuntu-latest    
-steps:    
-– uses: actions/checkout@v2    
-– uses: actions/cache@v1      
-with:        
-path: ~/.m2/repository        
-key: ${{ runner.os }}-maven-${{ hashFiles(‘**/pom.xml’) }}        
-restore-keys: |         
-${{ runner.os }}-maven-    
-– name: Set up JDK 1.8      
-uses: actions/setup-java@v1      
-with:        
-java-version: 1.8    
-– name: Build      
-run: mvn -B package –file pom.xml    
-– name: Stamp artifact file name with commit hash      
-run: |        
-artifactName1=$(ls target/*.jar | head -1)        
-commitHash=$(git rev-parse –short “$GITHUB_SHA”)        
-artifactName2=$(ls target/*.jar | head -1 | sed “s/.jar/.$commitHash.jar/g”)        
-mv $artifactName1 $artifactName2    
-– uses: actions/upload-artifact@master      
-with:          
-name: artifacts          
-path: target/*.jar
-deploy:    
-needs: build    
-runs-on: ubuntu-latest    
-steps:        
-– uses: actions/checkout@v2    
-– uses: actions/cache@v1      
-with:        
-path: ~/.m2/repository        
-key: ${{ runner.os }}-maven-${{ hashFiles(‘**/pom.xml’) }}        
-restore-keys: |          
-${{ runner.os }}-maven-    
-– uses: actions/download-artifact@master      
-with:        
-name: artifacts    
-– name: Deploy to CloudHub      
-env:        
-USERNAME: ${{ secrets.username }}        
-PASSWORD: ${{ secrets.password }}      
-run: |        
-artifactName=$(ls *.jar | head -1)        
-mvn mule:deploy 
--Dmule.artifact=$artifactName 
--Danypoint.userName=”$USERNAME” 
--Danypoint.password=”$PASSWORD”
+name: Build and Deploy to Sanbox
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+  
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    
+    - uses: actions/checkout@v2
+    
+    - uses: actions/cache@v1
+      with:
+        path: ~/.m2/repository
+        key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
+        restore-keys: |
+          ${{ runner.os }}-maven-
+          
+      - name: Set up JDK 1.8
+        uses: actions/setup-java@v1
+        with:
+          java-version: 1.8
+        
+      - name: Add repo credentials
+        uses: s4u/maven-settings-action@v2.4.0
+        with:
+          servers: |
+            [{
+              "id": "mule-enterprise",
+              "username": "${{ secrets.mule_nexus_username }}",
+              "password": "${{ secrets.mule_nexus_password }}"
+            }]
+            
+        - name: print effective-settings (optional)
+          run: mvn help:effective-settings
+        
+        - name: build with maven
+          run: mvn -B package --file pom.xml
+          
+        - name: stamp artifact file name with commit hash
+          run: |
+            artifactName1=$(ls target/*.jar | head -1)
+            commitHash=$(git rev-parse --short "$GITHUB_SHA")
+            artifactName2=$(ls target/*.jar | head -1 | sed "s/.jar/-$commitHash.jar/g")
+            mv $artifactName1 $artifactName2
+            
+        - name: upload artifact
+          uses: actions/upload-artifact@master
+          with:
+              name: artifacts
+              path: target/*.jar
+              
+  deploy
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+    
+    - uses: actions/checkout@v2
+    
+    - uses: actions/cache@v1
+      with:
+        path: ~/.m2/repository
+        key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
+        restore-keys: |
+          ${{ runner.os }}-maven-
+          
+    - uses: actions/download-artifacts@master
+      with:
+        name: artifacts
+        
+    - name: Deploy to Sandbox
+      env:
+        USERNAME: ${{ secrets.anypoint_cicd_username }}
+        PASSWORD: ${{ secrets.anypoint_cicd_password }}
+        DECRYPTION_key: ${{ secrets.decryption_key}}
+      run: |
+        artifactName: $(ls *.jar | head -1)
+        mvn deploy -DmuleDeploy -e \
+        -Dmule.artifacts=$artifactName \
+        -Danypoint.username="$USERNAME" \
+        -Danypoint.password="$PASSWORD" \
+        -Denv=Sandbox \
+        -Ddecryption.key="$DECRYPTION_KEY" \
+        -DskipTests
