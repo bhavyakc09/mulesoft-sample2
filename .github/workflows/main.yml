@@ -57,7 +57,7 @@ jobs:
         artifactName2=$(ls target/*.jar | head -1 | sed "s/.jar/-$commitHash.jar/g")
         mv $artifactName1 $artifactName2
             
-    - name: upload artifact
+    - name: upload build artifact
       uses: actions/upload-artifact@v3
       with:
           name: artifacts
@@ -77,8 +77,9 @@ jobs:
           key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
           restore-keys: |
             ${{ runner.os }}-maven-
-          
-      - uses: actions/download-artifacts@v3
+        
+      - name: upload deploy artifact
+        uses: actions/download-artifacts@v3
         with:
           name: artifacts
         
