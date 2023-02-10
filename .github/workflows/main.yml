@@ -5,7 +5,6 @@ name: Build and Deploy to Sandbox
 on:
   push:
     branches: [main]
-  workflow_dispatch:
   
 jobs:
   build:
@@ -57,9 +56,11 @@ jobs:
         artifactName2=$(ls target/*.jar | head -1 | sed "s/.jar/-$commitHash.jar/g")
         mv $artifactName1 $artifactName2
             
-    - name: upload build artifact
-      working-directory: build/sandband
-      run: cat report.html
+    - name: upload artifact
+      uses: actions/upload-artifact@v3
+      with:
+          name: artifacts
+          path: target/*.jar
       
   deploy:
     runs-on: ubuntu-latest
@@ -76,9 +77,9 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-maven-
         
-      - name: upload deploy artifact
-        working-directory: deploy/sandband
-        run: cat report.html
+      - uses: actions/download-artifacts@v3
+        with:
+          name: artifacts
         
       - name: Deploy to Sandbox
         env:
