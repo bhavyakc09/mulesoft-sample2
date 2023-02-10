@@ -75,7 +75,7 @@ jobs:
           
       - uses: actions/download-artifacts@master
         with:
-        name: artifacts
+          name: artifacts
         
       - name: Deploy to Sandbox
         env:
