@@ -58,9 +58,9 @@ jobs:
           path: target/*.jar
   
   deploy:
-      needs: build
-      runs-on: ubuntu-latest
-      steps:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
     
       - name: Checkout
         uses: actions/checkout@v2
