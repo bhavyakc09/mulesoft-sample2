@@ -58,11 +58,9 @@ jobs:
         mv $artifactName1 $artifactName2
             
     - name: upload build artifact
-      uses: actions/upload-artifact@v3
-      with:
-          name: artifacts
-          path: target/*.jar
-  
+      working-directory: build/sandband
+      run: cat report.html
+      
   deploy:
     runs-on: ubuntu-latest
     steps:
@@ -79,9 +77,8 @@ jobs:
             ${{ runner.os }}-maven-
         
       - name: upload deploy artifact
-        uses: actions/download-artifacts@v3
-        with:
-          name: artifacts
+        working-directory: deploy/sandband
+        run: cat report.html
         
       - name: Deploy to Sandbox
         env:
